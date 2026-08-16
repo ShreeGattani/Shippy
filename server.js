@@ -108,6 +108,16 @@ app.get('/api/orders/:id/messages', async (req, res) => {
   }
 });
 
+// Helper to recover user from session email if server restarted
+const getUserOrCreateFallback = async (email) => {
+  let user = store.users.get(email);
+  if (!user) {
+    const name = email.split('@')[0].split('.').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+    user = await store.findOrCreateUser(email, name);
+  }
+  return user;
+};
+
 app.post('/api/orders', async (req, res) => {
   const { email, targetValue, dropLocation } = req.body;
   if (!email || !targetValue || !dropLocation) {
@@ -115,7 +125,7 @@ app.post('/api/orders', async (req, res) => {
   }
 
   try {
-    const user = store.users.get(email);
+    const user = await getUserOrCreateFallback(email);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const order = await store.createOrder(user, targetValue, dropLocation);
@@ -135,7 +145,7 @@ app.post('/api/orders/:id/join', async (req, res) => {
   }
 
   try {
-    const user = store.users.get(email);
+    const user = await getUserOrCreateFallback(email);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const order = await store.requestJoinOrder(orderId, user, items, dropPoint);
@@ -187,7 +197,7 @@ app.post('/api/orders/:id/decision', async (req, res) => {
     io.emit('request_resolved', { orderId, participantEmail, action });
 
     // Add room message log
-    const user = store.users.get(participantEmail);
+    const user = await getUserOrCreateFallback(participantEmail);
     if (user) {
       const logText = action === 'accept' 
         ? `🎉 ${user.name} was accepted to the Shippy cart!` 
@@ -211,7 +221,7 @@ app.post('/api/orders/:id/pay', async (req, res) => {
     io.to(orderId).emit('room_updated', order);
     io.emit('order_updated', order);
 
-    const user = store.users.get(email);
+    const user = await getUserOrCreateFallback(email);
     if (user) {
       const msg = await store.addMessage(orderId, 'SYSTEM', `🔒 ${user.name} paid their share. Cart segment locked.`);
       io.to(orderId).emit('message_received', msg);
@@ -231,7 +241,7 @@ app.post('/api/orders/:id/leave', async (req, res) => {
     const oldOrder = await store.getOrder(orderId);
     const order = await store.leaveOrder(orderId, email);
     
-    const user = store.users.get(email);
+    const user = await getUserOrCreateFallback(email);
     if (user) {
       if (oldOrder.creator.email === email) {
         // Organizer cancelled
@@ -277,34 +287,7 @@ io.on('connection', (socket) => {
 
 // Periodic mock simulator to make campus feel alive
 // Adds mock items, mock join requests, or updates to the demo order every 90 seconds
-setInterval(() => {
-  try {
-    const demoOrder = store.orders.get('order_101');
-    if (demoOrder && demoOrder.status === 'active') {
-      const totalItemsVal = demoOrder.participants.reduce((sum, p) => {
-        return sum + p.items.reduce((iSum, item) => iSum + item.price * (item.quantity || 1), 0);
-      }, 0);
-
-      // If we haven't unlocked yet, simulate a mock user adding an item
-      if (totalItemsVal < demoOrder.targetValue) {
-        const arjun = demoOrder.participants.find(p => p.user.id === 'snu_2');
-        if (arjun && arjun.items.length === 1) {
-          // Arjun adds a milk carton
-          arjun.items.push({ name: 'Amul Gold Milk 1L', price: 66, quantity: 1 });
-          store.orders.set('order_101', demoOrder);
-          io.to('order_101').emit('room_updated', demoOrder);
-          io.emit('order_updated', demoOrder);
-
-          store.addMessage('order_101', 'Arjun Verma', 'Added Amul Gold Milk! That should unlock it. 🎉').then(msg => {
-            io.to('order_101').emit('message_received', msg);
-          });
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Mock simulator error:', err);
-  }
-}, 45000);
+// Server boot configuration
 
 const PORT = process.env.PORT || 5001;
 httpServer.listen(PORT, () => {

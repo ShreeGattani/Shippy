@@ -349,22 +349,6 @@ export const App: React.FC = () => {
                   Opening a group cart 20-30 minutes before you intend to check out gives nearby hostel mates plenty of time to find and join your order.
                 </p>
               </div>
-
-              {/* Live Notifications Feed */}
-              <div className="flex-1 flex flex-col min-h-0">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-shippy-brown/60 block mb-3">Live Feed</span>
-                <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-                  {notifications.map((notif) => (
-                    <div key={notif.id} className="bg-white border border-shippy-border/70 p-3.5 rounded-2xl flex items-start gap-3 shadow-3xs">
-                      <div className="w-1.5 h-1.5 rounded-full bg-shippy-orange mt-1.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs font-semibold text-shippy-charcoal leading-relaxed">{notif.text}</p>
-                        <span className="text-[9px] font-bold text-shippy-brown/50 block mt-1">{notif.time}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
         </div>
