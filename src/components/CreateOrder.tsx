@@ -50,6 +50,11 @@ export const CreateOrder: React.FC<CreateOrderProps> = ({ currentUser, onOrderCr
       return;
     }
     
+    if (items.length === 0) {
+      setErrorMessage('Please add at least one item to your cart before starting a Shippy order.');
+      return;
+    }
+
     if (targetValue < 100) {
       setErrorMessage('Target cart size must be at least ₹100.');
       return;
